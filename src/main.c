@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <stdlib.h>
@@ -26,11 +27,11 @@ SP_hostent newSP_hostent(char* hostname){
 }
 
 int main(int argc, char *argv[]){
+
   if (argc != 4) {
     fprintf(stderr, "USAGE: TCPecho <hostname> <word> <port>\n");
     exit(1);
   }
-
   int sock;
   SP_hostent host = newSP_hostent(argv[1]);
   struct sockaddr_in echoserver;
@@ -42,45 +43,32 @@ int main(int argc, char *argv[]){
     fprintf(stderr, "USAGE: TCPecho <hostname> <word> <port>\n");
     exit(1);
   }
-  /* Create the TCP socket */
+
   if ((sock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
     Die("Failed to create socket");
   }
 
-  /* Construct the server sockaddr_in structure */
-  memset(&echoserver, 0, sizeof(echoserver));         /* Clear struct */
-  echoserver.sin_family = AF_INET;                   /* Internet/IP */
-  //echoserver.sin_addr.s_addr = inet_addr(argv[1]);  /* IP address */
+
+  memset(&echoserver, 0, sizeof(echoserver));
+  echoserver.sin_family = AF_INET;
   echoserver.sin_addr.s_addr = *((unsigned long*)(host->h_addr_list[0]));
-  echoserver.sin_port = htons(atoi(argv[3]));       /* server port */
-  /* Establish connection */
+  echoserver.sin_port = htons(atoi(argv[3]));
   if (connect(sock, (struct sockaddr *)&echoserver, sizeof(echoserver)) < 0) {
     Die("Failed to connect with server");
   }
-
-  long bytes = 0;
-  bytes = recv(sock, buffer, BUFFSIZE - 1, 0);
-  while (bytes != 0) {
-    if (bytes == -1) {
+  char *buf = (char*)malloc(sizeof(char)*BUFFSIZE);
+  int bytes = recv(sock, buf, BUFFSIZE-1, 0);
+  while(bytes != 0){
+    if(bytes < 0){
       fprintf(stdout, "Failed to receive bytes form server.\n");
+      break;
     }
-    int i,flag=1;
-    for(i=0;i<bytes;i++){
-      if(buffer[i]== '\0'){
-        fprintf(stdout, "%s", buffer);
-        fprintf(stdout, "\e\c");
-        flag=0;
-      }
-    }
-    if(flag){
-      buffer[bytes] = '\0';
-      fprintf(stdout, "%s", buffer);
-    }
-
-    bytes = recv(sock, buffer, BUFFSIZE - 1, 0);
+    buf[bytes] = '\0';
+    fprintf(stdout, "%s", buf);
+    bytes = recv(sock, buf, BUFFSIZE-1, 0);
   }
   fprintf(stdout, "\n");
   close(sock);
-  free(buffer);
-  exit(0);
+  free(buf);
+  return 0;
 }
